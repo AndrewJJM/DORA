@@ -1,4 +1,6 @@
 * text=auto
+*.asv
+
 
 *.fig binary
 *.mat binary

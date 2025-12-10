@@ -1,5 +1,8 @@
+clear snapshot;
+
 % Create a video object to access the webcam
 cam = webcam('Integrated Camera');
+
 cam.Resolution ='640x480';
 
 % Capture a snapshot from the webcam
@@ -12,3 +15,6 @@ title('Webcam Snapshot');
 
 % Clear the webcam object
 clear cam;
+
+% Before taking another snapshot
+clear snaphot;
