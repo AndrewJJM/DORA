@@ -1,14 +1,12 @@
-% Create a video object to access the webcam
-cam = webcam('Integrated Camera');
-cam.Resolution ='640x480';
+clear all;
 
-% Capture a snapshot from the webcam
-snapshot = snapshot(cam);
+list = mobiledevlist; %mobile devices connected via matlab cloud
 
-% Display the snapshot in a figure
-figure;
-imshow(snapshot);
-title('Webcam Snapshot');
+if isempty(list)
+    disp('No mobile devices found.');
+end
 
-% Clear the webcam object
-clear cam;
+m = mobiledev(list.DeviceId{1}); % Access the first device's Id from the table
+c = camera(m);
+img = snapshot(c,'immediate');
+
