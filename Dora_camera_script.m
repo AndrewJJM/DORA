@@ -15,14 +15,14 @@ list = mobiledevlist; %mobile devices connected via matlab cloud
 if isempty(list)
     error('No mobile devices found. Please ensure MATLAB Mobile is connected.');
 end
-m = mobiledev(list.DeviceId{1}); % Access the first device's Id from the table
+m = mobiledev(list.Device{1}); % Access the first device's Id from the table
 cam = camera(m);
 disp('Connected to Smartphone Camera via MATLAB Cloud.');
 
 % --- ESP32 Communication Setup ---
-esp32_IP = '192.168.1.101'; % Replace with your ESP32 IP address
-esp32_Port = 4210;          % UDP Port listening on ESP32
-udpSender = udpport("IPv4");
+% esp32_IP = '192.168.1.101'; % Replace with your ESP32 IP address
+% esp32_Port = 4210;          % UDP Port listening on ESP32
+% udpSender = udpport("IPv4");
 
 % --- Robot & Environment Parameters ---
 robotRadius = 20; % Robot radius in pixels (adjust based on camera height)
@@ -31,7 +31,7 @@ mapResolution = 1; % 1 pixel per grid cell
 %% 2. Initial Image Acquisition & Processing
 disp('Acquiring initial environment map...');
 img = snapshot(cam, 'immediate');
-figure('Name', 'DORA: Pathfinding & Tracking', 'Position', [100, 100, 1000, 500]);
+figure('Name', 'DORA: Pathfinding & Tracking', 'Position', [100, 100, 1000, 1000]); %square picture
 
 % Convert to HSV for robust color thresholding
 hsvImg = rgb2hsv(img);
