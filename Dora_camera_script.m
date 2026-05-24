@@ -50,7 +50,7 @@ disp('Capturing background in 3 seconds...');
 pause(3);
 bgImg_rgb = snapshot(cam, 'immediate');
 bgImg = rgb2gray(bgImg_rgb);
-bgImg = imflatfield(medfilt2(bgImg, [5 5]), 30); 
+%bgImg = imflatfield(medfilt2(bgImg, [5 5]), 30);
 disp('Background captured.');
 
 % STREAMING_CHUNK:Capturing and subtracting obstacles...
@@ -61,39 +61,75 @@ disp('press any key to take the picture...');
 pause;
 fgImg_rgb = snapshot(cam, 'immediate');
 cleanImg = rgb2gray(fgImg_rgb);
-cleanImg = imflatfield(medfilt2(cleanImg, [5 5]), 30);
+%cleanImg = imflatfield(medfilt2(cleanImg, [5 5]), 30);
 
 % --- OLD Image Cleaning (consider removing) ---
-cleanImg = medfilt2(cleanImg, [5 5]);
-cleanImg = imflatfield(cleanImg, 30);
+% cleanImg = medfilt2(cleanImg, [5 5]);
+% cleanImg = imflatfield(cleanImg, 30);
 
 % Perform Background Subtraction
 diffImg = imabsdiff(cleanImg, bgImg);
 
-% Thresholding: A slightly higher threshold cuts out soft shadow gradients
-diffThreshold = 180; % Tweak this number (0-255) to ignore shadows
+% 1. Thresholding to ignore soft shadows
+diffThreshold = 10; % Adjust if needed
 bwObs = diffImg > diffThreshold;
 
-% Shadow Reduction & Cleanup
-% 1. imopen (erosion then dilation) removes weak, attached shadow boundaries 
-%    without permanently shrinking the main object.
-se_clean = strel('disk', 2);
+% 2. Shadow Reduction & Cleanup
+se_clean = strel('disk', 3); 
 bwObs = imopen(bwObs, se_clean); 
 
-% 2. Remove disconnected tiny specks (noise)
-bwObs = bwareaopen(bwObs, 200); 
+% Remove disconnected tiny specks (noise)
+bwObs = bwareaopen(bwObs, 400); 
+bwObs = imfill(bwObs, 'holes');
 
-% 3. Solidify the interior of the shapes (in case the tops of obstacles 
-%    looked identical to the floor)
-finalObsMask = imfill(bwObs, 'holes');
+% 3. Extract properties, accounting for orientation
+% We use 'ConvexHull' to perfectly capture rotated rectangular shapes.
+% We also extract 'Centroid' and 'Orientation' to save for later use.
+stats = regionprops(bwObs, 'Area', 'ConvexHull', 'Centroid', 'Orientation', 'BoundingBox');
 
-% Generate the static occupancy map
-% Inflate the obstacles by the robot's radius
+[imgHeight, imgWidth] = size(bwObs);
+cleanObsMask = false(imgHeight, imgWidth); % Blank canvas for clean shapes
+
+% Initialize an array to store valid obstacles for later use
+detectedObstacles = []; 
+
+for k = 1:length(stats)
+    % Only process areas bigger than a certain threshold
+    if stats(k).Area > 400 
+        
+        % A. Save the valid obstacle to our array (append)
+        detectedObstacles = [detectedObstacles; stats(k)]; %#ok<AGROW>
+        
+        % B. Get the Convex Hull polygon (traces the rotated book)
+        % hull is an Nx2 array of [X, Y] coordinates for the corners
+        hull = stats(k).ConvexHull;
+        
+        % C. Create a mask from the polygon and add it to our clean canvas
+        % This preserves the EXACT orientation and size of the book
+        polyMask = poly2mask(hull(:,1), hull(:,2), imgHeight, imgWidth);
+        cleanObsMask = cleanObsMask | polyMask;
+    end
+end
+
+% 4. Generate the static occupancy map
+% Inflate the clean, oriented shapes by the robot's radius
 se_inflate = strel('disk', ROBOT_RADIUS_PX);
-inflatedObsMask = imdilate(finalObsMask, se_inflate);
+inflatedObsMask = imdilate(cleanObsMask, se_inflate);
 
-% Create Occupancy Map (Direct 1:1 Pixel Mapping) once!
+% Create Occupancy Map 
 map = binaryOccupancyMap(inflatedObsMask);
+
+% --- Visualization ---
+figure;
+show(map);
+title('Oriented Occupancy Grid');
+hold on;
+
+% Optional: Plot the centroids of the saved array to verify
+for i = 1:length(detectedObstacles)
+    plot(detectedObstacles(i).Centroid(1), detectedObstacles(i).Centroid(2), 'r*', 'MarkerSize', 8);
+end
+hold off;
 
 % Initialize A* Planner once!
 planner = plannerAStarGrid(map);
