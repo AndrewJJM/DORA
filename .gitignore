@@ -1,0 +1,4 @@
+# DORA .gitignore
+
+# Saved session data (large .mat files with images)
+data/
